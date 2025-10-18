@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface AsNode {
+public @interface AsReactiveNode {
     /**
      * 节点的唯一ID
      */

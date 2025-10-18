@@ -27,7 +27,7 @@ public class StatefulGraph<C> {
             if (transitionResult.trigger()) {
                 String dest = downstream.dest();
                 Node node = id2Node.get(dest);
-                CorePublisher<Object> future = node.execute(transitionResult.parentResults());
+                CorePublisher<Object> future = (CorePublisher<Object>) node.execute(transitionResult.parentResults());
                 registerWhenFinish(context, src, future);
             }
         }

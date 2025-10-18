@@ -2,9 +2,12 @@ package com.cxy.reflection.demo;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.junit.jupiter.api.Assertions;
+import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Type;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TypeUtilsTest {
     public static void main(String[] args) {
@@ -20,14 +23,12 @@ public class TypeUtilsTest {
 
         Type intType = Integer.TYPE;
         Class<?> numberClass = Number.class;
-        Assertions.assertTrue(TypeUtils.isAssignable(intType, numberClass));
+        assertTrue(TypeUtils.isAssignable(intType, numberClass));
         Assertions.assertFalse(TypeUtils.isAssignable(numberClass, intType));
 
         Type object = Object.class;
-        Assertions.assertTrue(TypeUtils.isAssignable(intType, object));
+        assertTrue(TypeUtils.isAssignable(intType, object));
         Assertions.assertFalse(TypeUtils.isAssignable(object, intType));
-
-        List<>
     }
 
     static abstract class TypeReference<T> {
