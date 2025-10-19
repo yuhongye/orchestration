@@ -4,17 +4,20 @@ import reactor.core.CorePublisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class StatefulGraph<C> {
     private final String root = PreBuilt.START;
 
-    private final Map<String, Node> id2Node = new HashMap<>();
+    private final Map<String, ReactiveNode> id2Node;
 
-    private final Map<String, List<Transition<C>>> id2Downstreams = new HashMap<>();
+    private final Map<String, List<Transition<C>>> id2Downstreams;
 
+    public StatefulGraph(Map<String, ReactiveNode> id2Node, Map<String, List<Transition<C>>> id2Downstreams) {
+        this.id2Node = id2Node;
+        this.id2Downstreams = id2Downstreams;
+    }
 
     public <REQ> void start(C context, REQ request) {
         trigger(context, root, request);
@@ -26,7 +29,7 @@ public class StatefulGraph<C> {
             TransitionResult transitionResult = downstream.test(context, root, srcResult);
             if (transitionResult.trigger()) {
                 String dest = downstream.dest();
-                Node node = id2Node.get(dest);
+                ReactiveNode node = id2Node.get(dest);
                 CorePublisher<Object> future = (CorePublisher<Object>) node.execute(transitionResult.parentResults());
                 registerWhenFinish(context, src, future);
             }

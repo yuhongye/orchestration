@@ -3,7 +3,7 @@ package com.cxy.com.cxy.orchestration.annotations;
 import com.cxy.orchestration.annotations.AsReactiveNode;
 import com.cxy.orchestration.annotations.From;
 import com.cxy.orchestration.annotations.NodeProcessor;
-import com.cxy.orchestration.graph.Node;
+import com.cxy.orchestration.graph.ReactiveNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -59,7 +59,7 @@ public class NodeProcessTest {
         // --- 演示 1：成功处理 (包含泛型) ---
         System.out.println("--- 演示 1：成功处理 ---");
         try {
-            Map<String, Node> nodeMap = NodeProcessor.process(new GenericWorkflow());
+            Map<String, ReactiveNode> nodeMap = NodeProcessor.process(new GenericWorkflow());
             System.out.println("Successfully processed nodes: " + nodeMap.keySet());
         } catch (Exception e) {
             System.out.println("Processing failed unexpectedly: " + e.getMessage());

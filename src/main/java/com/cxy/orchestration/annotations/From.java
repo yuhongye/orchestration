@@ -15,4 +15,10 @@ public @interface From {
      * 依赖的源节点ID
      */
     String value();
+
+    /**
+     * 这个参数是否为可选，当可选时，可能会传递null
+     * @return
+     */
+    boolean optional();
 }

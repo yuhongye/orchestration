@@ -1,7 +1,8 @@
 package com.cxy.orchestration.annotations;
 
-import com.cxy.orchestration.graph.Node;
+import com.cxy.orchestration.graph.ReactiveNode;
 import org.apache.commons.lang3.reflect.TypeUtils;
+import reactor.core.CorePublisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -16,7 +17,7 @@ import java.util.function.Function;
 
 public class NodeProcessor {
 
-    public static Map<String, Node> process(Object instance) {
+    public static Map<String, ReactiveNode> process(Object instance) {
         Class<?> clazz = instance.getClass();
 
         // 第一遍：注册 (与之前相同)
@@ -36,7 +37,7 @@ public class NodeProcessor {
         }
 
         // 第二遍：验证与创建 (与之前相同)
-        Map<String, Node> finalNodes = new HashMap<>();
+        Map<String, ReactiveNode> finalNodes = new HashMap<>();
         for (Map.Entry<String, Method> entry : nodeMethodRegistry.entrySet()) {
             String currentNodeId = entry.getKey();
             Method currentMethod = entry.getValue();
@@ -45,8 +46,8 @@ public class NodeProcessor {
             validateMethodParameters(currentNodeId, currentMethod, nodeMethodRegistry);
 
 
-            Function<Object[], Object> executor = createExecutor(instance, currentMethod, currentNodeId);
-            Node node = new Node(currentNodeId, executor);
+            Function<Object[], CorePublisher<Object>> executor = createExecutor(instance, currentMethod, currentNodeId);
+            ReactiveNode node = new ReactiveNode(currentNodeId, executor);
             finalNodes.put(currentNodeId, node);
         }
 
@@ -107,11 +108,11 @@ public class NodeProcessor {
     /**
      * 创建执行器 (与之前相同)。
      */
-    private static Function<Object[], Object> createExecutor(Object instance, Method method, String nodeId) {
+    private static Function<Object[], CorePublisher<Object>> createExecutor(Object instance, Method method, String nodeId) {
         return (args) -> {
             try {
                 method.setAccessible(true);
-                return method.invoke(instance, args);
+                return (CorePublisher<Object>) method.invoke(instance, args);
             } catch (IllegalAccessException e) {
                 throw new RuntimeException("Cannot access method for node: " + nodeId, e);
             } catch (InvocationTargetException e) {
