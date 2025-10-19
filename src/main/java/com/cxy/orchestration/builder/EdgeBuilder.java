@@ -1,7 +1,9 @@
 package com.cxy.orchestration.builder;
 
+import com.cxy.orchestration.graph.PreBuilt;
 import lombok.NonNull;
 
+import java.util.Objects;
 import java.util.function.BiPredicate;
 
 /**
@@ -11,9 +13,10 @@ import java.util.function.BiPredicate;
  */
 public class EdgeBuilder<C, REQ> {
     private final DCGBuilder<C, REQ> dcgBuilder;
+
     private String from;
     private String to;
-    private BiPredicate<C, ?> when;
+    private BiPredicate<C, Object> when = PreBuilt.alwaysTrue();
 
     public EdgeBuilder(DCGBuilder<C, REQ> dcgBuilder) {
         this.dcgBuilder = dcgBuilder;
@@ -29,12 +32,13 @@ public class EdgeBuilder<C, REQ> {
         return this;
     }
 
-    public EdgeBuilder<C, REQ> when(@NonNull BiPredicate<C, ?> when) {
+    public EdgeBuilder<C, REQ> when(@NonNull BiPredicate<C, Object> when) {
         this.when = when;
         return this;
     }
 
     public DCGBuilder<C, REQ> end() {
+        dcgBuilder.getTransitionBuilder().addEdge(from, to, when);
         return dcgBuilder;
     }
 }

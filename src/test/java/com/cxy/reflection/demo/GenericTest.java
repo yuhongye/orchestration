@@ -3,6 +3,7 @@ package com.cxy.reflection.demo;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +12,9 @@ public class GenericTest {
     public static void main(String[] args) throws NoSuchMethodException {
         Method method = A.class.getDeclaredMethod("f", Map.class);
         System.out.println(method);
+        Type returnType = method.getGenericReturnType();
+        System.out.println(Arrays.toString(((ParameterizedType) returnType).getActualTypeArguments()));;
+
 
         System.out.println("------------------- Parameter info:");
         for (Type type : method.getGenericParameterTypes()) {

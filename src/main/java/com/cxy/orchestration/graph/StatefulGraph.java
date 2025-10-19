@@ -1,5 +1,6 @@
 package com.cxy.orchestration.graph;
 
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.CorePublisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -7,7 +8,8 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.Map;
 
-public class StatefulGraph<C> {
+@Slf4j
+public class StatefulGraph<C, REQ> {
     private final String root = PreBuilt.START;
 
     private final Map<String, ReactiveNode> id2Node;
@@ -19,19 +21,23 @@ public class StatefulGraph<C> {
         this.id2Downstreams = id2Downstreams;
     }
 
-    public <REQ> void start(C context, REQ request) {
+    public void start(C context, REQ request) {
         trigger(context, root, request);
     }
 
     private void trigger(C context, String src, Object srcResult) {
         List<Transition<C>> downstreams = id2Downstreams.get(src);
+        if (downstreams == null) {
+            log.info("src node is {}, its no downstreams", src);
+            return;
+        }
         for (Transition<C> downstream : downstreams) {
-            TransitionResult transitionResult = downstream.test(context, root, srcResult);
+            TransitionResult transitionResult = downstream.test(context, src, srcResult);
             if (transitionResult.trigger()) {
                 String dest = downstream.dest();
                 ReactiveNode node = id2Node.get(dest);
-                CorePublisher<Object> future = (CorePublisher<Object>) node.execute(transitionResult.parentResults());
-                registerWhenFinish(context, src, future);
+                CorePublisher<Object> future = node.execute(transitionResult.parentResults());
+                registerWhenFinish(context, node.getId(), future);
             }
         }
     }
@@ -46,10 +52,10 @@ public class StatefulGraph<C> {
         }
     }
     private void monoResult(C context, String src, Mono<Object> srcResult) {
-        srcResult.subscribe(result -> trigger(context, src, srcResult));
+        srcResult.subscribe(result -> trigger(context, src, result));
     }
 
-    public void fluxResult(C context, String src, Flux<Object> srcResult) {
+    private void fluxResult(C context, String src, Flux<Object> srcResult) {
         srcResult.doFirst(() -> {
             trigger(context, src, srcResult);
         }).subscribe();

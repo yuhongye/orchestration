@@ -1,6 +1,7 @@
 package com.cxy.orchestration.builder;
 
 
+import com.cxy.orchestration.graph.PreBuilt;
 import lombok.NonNull;
 
 import java.util.function.BiPredicate;
@@ -13,9 +14,9 @@ import java.util.function.BiPredicate;
  * @param <C>
  */
 public class ToEachBuilder<C, REQ> {
-    private String from;
+    private final DCGBuilder<C, REQ> dcgBuilder;
 
-    private DCGBuilder<C, REQ> dcgBuilder;
+    private String from;
 
     public ToEachBuilder(DCGBuilder<C, REQ> dcgBuilder) {
         this.dcgBuilder = dcgBuilder;
@@ -27,13 +28,15 @@ public class ToEachBuilder<C, REQ> {
     }
 
     public ToEachBuilder<C, REQ> toEach(@NonNull String downstream) {
-        return this;
+        return toEach(downstream, PreBuilt.alwaysTrue());
     }
 
-    public ToEachBuilder<C, REQ> toEach(@NonNull String downstream, @NonNull BiPredicate<C, ?> when) {
+    public ToEachBuilder<C, REQ> toEach(@NonNull String downstream, @NonNull BiPredicate<C, Object> when) {
+        dcgBuilder.getTransitionBuilder().addEdge(from, downstream, when);
         return this;
     }
 
     public DCGBuilder<C, REQ> end() {
         return dcgBuilder;
     }
+}

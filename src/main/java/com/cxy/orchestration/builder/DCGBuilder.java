@@ -1,14 +1,15 @@
 package com.cxy.orchestration.builder;
 
-import com.cxy.orchestration.annotations.OrderedParents;
+import com.cxy.orchestration.annotations.NodeMetadata;
+import com.cxy.orchestration.annotations.NodeProcessor;
 import com.cxy.orchestration.graph.ReactiveNode;
-import com.cxy.orchestration.graph.Transition;
-import com.cxy.orchestration.graph.TransitionResult;
 import com.google.common.base.Preconditions;
+import lombok.NonNull;
 
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
+
+import static com.cxy.orchestration.graph.PreBuilt.alwaysTrue;
 
 public class DCGBuilder<C, REQ> {
     private Object scanFromInstance;
@@ -17,62 +18,75 @@ public class DCGBuilder<C, REQ> {
 
     private Class<REQ> requestClass;
 
+    TransitionBuilder<C, REQ> transitionBuilder = new TransitionBuilder<>(this);
+
     private Map<String, ReactiveNode> id2Node;
-
-    private TransitionBuilder transitionBuilder = new TransitionBuilder();
-
-    private Map<String, OrderedParents> id2OrderedParents;
 
     public static <C, REQ> DCGBuilder<C, REQ> builder() {
         return new DCGBuilder<>();
     }
 
-    public DCGBuilder<C, REQ> scanNodeFrom(Object instance) {
-        Preconditions.checkNotNull(instance, "scan instance must be not null")
+    public DCGBuilder<C, REQ> scanNodeFrom(@NonNull Object instance) {
         this.scanFromInstance = instance;
         return this;
     }
 
-    public DCGBuilder<C, REQ> contextType(Class<C> clazz) {
-        Preconditions.checkNotNull(clazz, "context class must be not null");
+    public DCGBuilder<C, REQ> contextType(@NonNull Class<C> clazz) {
         this.contextClass = clazz;
         return this;
     }
 
-    public DCGBuilder<C, REQ> requestType(Class<REQ> clazz) {
-        Preconditions.checkNotNull(clazz, "request class must be not null");
+    public DCGBuilder<C, REQ> requestType(@NonNull Class<REQ> clazz) {
         this.requestClass = clazz;
         return this;
     }
 
+    /********************** 添加边的操作 *************************/
     public DCGBuilder<C, REQ> addEdge(String from, String to) {
         return addEdge(from, to, alwaysTrue());
     }
 
-    public DCGBuilder<C, REQ> addEdge(String from, String to, BiPredicate<C, ?> when) {
-
+    public DCGBuilder<C, REQ> addEdge(String from, String to, BiPredicate<C, Object> when) {
+        transitionBuilder.addEdge(from, to, when);
+        return this;
     }
 
-    public DCGBuilder<C, REQ> addEdge() {
+    public EdgeBuilder<C, REQ> addEdge() {
+        return new EdgeBuilder<>(this);
+    }
+
+    public ToEachBuilder<C, REQ> addMultiDownstream() {
+        return new ToEachBuilder<>(this);
+    }
+
+    public MultiParentBuilder<C, REQ> addMultiUpstream() {
+        return new MultiParentBuilder<>(this);
+    }
+    /********************** 添加边操作结束 *************************/
+
+    TransitionBuilder<C, REQ> getTransitionBuilder() {
+        return transitionBuilder;
+    }
+
+    NodeMetadata getNodeMetadata(String nodeId) {
+        return id2Node.get(nodeId).getMetadata();
     }
 
 
+    public CompledDCGBuilder<C, REQ> compile() {
+        check();
+        initNodes();
 
-    BiPredicate<C, ?> alwaysTrue() {
-        return ($1, $2) -> true;
+        return new CompledDCGBuilder<>(id2Node, transitionBuilder);
     }
 
-
-    class TransitionBuilder {
-
-        Map<String, List<Transition<C>>> build() {
-            return null;
-        }
-
-        public TransitionBuilder addEdge(String from, String to, BiPredicate<C, ?> when) {
-            return this;
-        }
-
+    void check() {
+        Preconditions.checkNotNull(scanFromInstance, "scanFromInstance is null");
+        Preconditions.checkNotNull(contextClass, "contextClass is null");
+        Preconditions.checkNotNull(requestClass, "requestClass is null");
     }
 
+    void initNodes() {
+        id2Node = NodeProcessor.process(scanFromInstance);
+    }
 }

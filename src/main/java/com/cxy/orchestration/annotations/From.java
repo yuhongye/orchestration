@@ -18,7 +18,6 @@ public @interface From {
 
     /**
      * 这个参数是否为可选，当可选时，可能会传递null
-     * @return
      */
-    boolean optional();
+    boolean optional() default false;
 }

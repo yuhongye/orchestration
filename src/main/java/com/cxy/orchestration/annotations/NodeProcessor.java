@@ -6,13 +6,8 @@ import reactor.core.CorePublisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.lang.reflect.*;
+import java.util.*;
 import java.util.function.Function;
 
 public class NodeProcessor {
@@ -29,37 +24,50 @@ public class NodeProcessor {
                 if (nodeMethodRegistry.containsKey(nodeId)) {
                     throw new IllegalArgumentException("Duplicate node ID found: " + nodeId);
                 }
-                if (!validateReturnIsMonoFlux(method.getReturnType())) {
-                    throw new IllegalArgumentException("node " + nodeId + " return type is not Mono or Flux, its " + method.getReturnType().getName());
-                }
+                validateReturnIsMonoFlux(nodeId, method);
+                validateParamterAnnotated(nodeId, method);
                 nodeMethodRegistry.put(nodeId, method);
             }
         }
 
-        // 第二遍：验证与创建 (与之前相同)
+        // 第二遍：验证与创建
         Map<String, ReactiveNode> finalNodes = new HashMap<>();
         for (Map.Entry<String, Method> entry : nodeMethodRegistry.entrySet()) {
-            String currentNodeId = entry.getKey();
-            Method currentMethod = entry.getValue();
+            String nodeId = entry.getKey();
+            Method method = entry.getValue();
 
             // 验证逻辑被更新
-            validateMethodParameters(currentNodeId, currentMethod, nodeMethodRegistry);
+            validateMethodParameters(nodeId, method, nodeMethodRegistry);
 
 
-            Function<Object[], CorePublisher<Object>> executor = createExecutor(instance, currentMethod, currentNodeId);
-            ReactiveNode node = new ReactiveNode(currentNodeId, executor);
-            finalNodes.put(currentNodeId, node);
+            Function<Object[], CorePublisher<Object>> executor = createExecutor(instance, method, nodeId);
+            NodeMetadata metadata = createNodeMetadata(nodeId, method);
+            ReactiveNode node = new ReactiveNode(nodeId, metadata, executor);
+            finalNodes.put(nodeId, node);
         }
 
         return finalNodes;
     }
 
-    private static boolean validateReturnIsMonoFlux(Class<?> clazz) {
-        return Mono.class.isAssignableFrom(clazz) || Flux.class.isAssignableFrom(clazz);
+    private static void validateReturnIsMonoFlux(String nodeId, Method method) {
+        Class<?> returnType = method.getReturnType();
+        boolean isReactive = Mono.class.isAssignableFrom(returnType) || Flux.class.isAssignableFrom(returnType);
+        if (!isReactive) {
+            throw new IllegalArgumentException("node " + nodeId + " return type is not Mono or Flux, its " + method.getReturnType().getName());
+        }
+    }
+
+    private static void validateParamterAnnotated(String nodeId, Method method) {
+        for (Parameter param : method.getParameters()) {
+            if (!(param.isAnnotationPresent(From.class) || param.isAnnotationPresent(FromContext.class))) {
+                String paramName = param.getName();
+                throw new IllegalArgumentException("node " + nodeId + " param name " + paramName + " is not annotated by @From or @FromContext");
+            }
+        }
     }
 
     /**
-     * 辅助方法：验证一个节点方法的所有参数 (更新版)。
+     * 辅助方法：验证一个节点方法的所有参数
      */
     private static void validateMethodParameters(String currentNodeId, Method currentMethod, Map<String, Method> registry) {
 
@@ -76,10 +84,8 @@ public class NodeProcessor {
                     );
                 }
 
-                // --- 核心修改在这里 ---
-
                 // 1. 获取源的泛型返回类型 (e.g., List<String>)
-                Type expectedType = sourceMethod.getGenericReturnType(); // 'from' type
+                Type expectedType = removeMono(sourceMethod.getGenericReturnType()); // 'from' type
 
                 // 2. 获取参数的泛型类型 (e.g., List<Integer>)
                 Type actualType = param.getParameterizedType();   // 'to' type
@@ -105,6 +111,15 @@ public class NodeProcessor {
         }
     }
 
+    public static Type removeMono(Type type) {
+        if (type instanceof ParameterizedType ptype) {
+            if (TypeUtils.isAssignable(ptype.getRawType(), Mono.class)) {
+                return ptype.getActualTypeArguments()[0];
+            }
+        }
+        return type;
+    }
+
     /**
      * 创建执行器 (与之前相同)。
      */
@@ -123,5 +138,26 @@ public class NodeProcessor {
                 throw new RuntimeException("Argument mismatch for node '" + nodeId + "'. Expected: " + expected + ", Got: " + actual, e);
             }
         };
+    }
+
+    private static NodeMetadata createNodeMetadata(String nodeId, Method method) {
+        Parameter[] parameters = method.getParameters();
+        List<NodeMetadata.ParameterMetadata> paramMetadatas = new ArrayList<>(parameters.length);
+        int order = 0;
+        for (Parameter param : parameters) {
+            if (param.isAnnotationPresent(From.class)) {
+                From fromAnnotation = param.getAnnotation(From.class);
+                String fromNodeId = fromAnnotation.value();
+                boolean isOptional = fromAnnotation.optional();
+                paramMetadatas.add(new NodeMetadata.ParameterMetadata(fromNodeId, order, isOptional, false));
+            } else if (param.isAnnotationPresent(FromContext.class)) {
+                paramMetadatas.add(new NodeMetadata.ParameterMetadata(null, order, false, true));
+            } else {
+                throw new IllegalArgumentException("node " + nodeId + " method " + method.getName() + " parameter " + param.getName() + " is not annotated by @From or @FromContext");
+            }
+            order++;
+        }
+
+        return new NodeMetadata(method.getGenericReturnType(), paramMetadatas);
     }
 }
